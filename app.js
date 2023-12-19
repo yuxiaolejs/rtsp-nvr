@@ -6,6 +6,10 @@ rec.e.on("start", () => {
 })
 rec.e.on("stop", (e) => {
     console.log("FFMPEG stopped", e)
+    setTimeout(() => {
+        console.log("Restarting FFMPEG")
+        rec.start()
+    }, 1000)
 })
 rec.e.on("clean", (file) => {
     console.log("FILES TO DELETE", file)
@@ -19,6 +23,10 @@ rtc.e.on("start", () => {
 })
 rtc.e.on("stop", (e) => {
     console.log("RTC stopped", e)
+    setTimeout(() => {
+        console.log("Restarting RTC")
+        rtc.start()
+    }, 1000)
 })
 rtc.start()
 

@@ -392,8 +392,10 @@
             return () => {
                 const video = document.createElement("video");
                 video.id = "video";
-
-                setVideoAttributes(video);
+                video.autoplay = true;
+                video.muted = true;
+                video.controls = false;
+                // setVideoAttributes(video);
                 container.append(video);
                 callback(video);
             };
