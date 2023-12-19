@@ -1,5 +1,6 @@
 const ffmpegRecorder = require("./recorder.js")
 const credentials = require("./credentials.json")
+const path = require("path")
 let rec = new ffmpegRecorder(credentials.channels[0].url, credentials.channels[0].name)
 rec.e.on("start", () => {
     console.log("Starting FFMPEG")
@@ -32,7 +33,7 @@ rtc.start()
 
 const express = require('express')
 const app = express()
-app.use(express.static('static'))
+app.use(express.static(path.join(__dirname, 'static')))
 app.listen(3010)
 // setTimeout(() => {
 //     rec.stop()
