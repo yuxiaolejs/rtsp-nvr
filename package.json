@@ -4,7 +4,8 @@
   "description": "",
   "main": "ui.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "pack": "npx electron-packager . nvr --platform=linux --arch=x64 --out=dist --overwrite"
   },
   "author": "",
   "license": "ISC",
@@ -13,6 +14,7 @@
     "express": "^4.18.2"
   },
   "devDependencies": {
+    "@electron/packager": "^18.1.2",
     "electron": "^28.0.0"
   }
 }

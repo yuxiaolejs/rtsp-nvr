@@ -1,7 +1,10 @@
 node_modules
-bin
+bin/*
+!bin/.gitkeep
 credentials.json
 package-lock.json
 recording/*
 !recording/.gitkeep
+dist/*
+!dist/.gitkeep
 ```

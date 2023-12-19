@@ -20,7 +20,7 @@ class MediaMTX {
         if (this.process && !this.process.killed) {
             return false;
         }
-        this.process = child_process.spawn(path.join(__dirname, "/bin/mediamtx"))
+        this.process = child_process.spawn(path.join(__dirname, "/bin/mediamtx"), { cwd: path.join(__dirname) })
         this.recording = true;
         this.e.emit("start")
         this.process.on("error", (err) => {
