@@ -1,0 +1,4 @@
+node_modules
+bin
+credentials.json
+package-lock.json

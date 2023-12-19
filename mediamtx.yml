@@ -1,0 +1,120 @@
+
+###############################################
+# General parameters
+
+# Sets the verbosity of the program; available values are "error", "warn", "info", "debug".
+logLevel: info
+# Destinations of log messages; available values are "stdout", "file" and "syslog".
+logDestinations: [stdout]
+# If "file" is in logDestinations, this is the file which will receive the logs.
+logFile: mediamtx.log
+
+# Timeout of read operations.
+readTimeout: 10s
+# Timeout of write operations.
+writeTimeout: 10s
+# Number of read buffers.
+# A higher value allows a wider throughput, a lower value allows to save RAM.
+readBufferCount: 512
+# Maximum size of payload of outgoing UDP packets.
+# This can be decreased to avoid fragmentation on networks with a low UDP MTU.
+udpMaxPayloadSize: 1472
+
+# HTTP URL to perform external authentication.
+# Every time a user wants to authenticate, the server calls this URL
+# with the POST method and a body containing:
+# {
+#   "ip": "ip",
+#   "user": "user",
+#   "password": "password",
+#   "path": "path",
+#   "protocol": "rtsp|rtmp|hls|webrtc",
+#   "id": "id",
+#   "action": "read|publish",
+#   "query": "query"
+# }
+# If the response code is 20x, authentication is accepted, otherwise
+# it is discarded.
+externalAuthenticationURL:
+
+# Enable the HTTP API.
+api: yes
+# Address of the API listener.
+apiAddress: 127.0.0.1:8887
+
+# Enable Prometheus-compatible metrics.
+metrics: no
+# Address of the metrics listener.
+metricsAddress: 127.0.0.1:9998
+
+# Enable pprof-compatible endpoint to monitor performances.
+pprof: no
+# Address of the pprof listener.
+pprofAddress: 127.0.0.1:9999
+
+# Command to run when a client connects to the server.
+# Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
+# This is terminated with SIGINT when a client disconnects from the server.
+# The following environment variables are available:
+# * RTSP_PORT: server port
+runOnConnect:
+# Restart the command if it exits.
+runOnConnectRestart: no
+
+###############################################
+# RTSP parameters
+
+# Disable support for the RTSP protocol.
+rtspDisable: yes
+rtmpDisable: yes
+###############################################
+# HLS parameters
+
+# Disable support for the HLS protocol.
+hlsDisable: yes
+###############################################
+# WebRTC parameters
+
+# Disable support for the WebRTC protocol.
+webrtcDisable: no
+# Address of the WebRTC listener.
+webrtcAddress: :8889
+# Enable TLS/HTTPS on the WebRTC server.
+webrtcEncryption: no
+# Path to the server key.
+# This can be generated with:
+# openssl genrsa -out server.key 2048
+# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+webrtcServerKey: server.key
+# Path to the server certificate.
+webrtcServerCert: server.crt
+# Value of the Access-Control-Allow-Origin header provided in every HTTP response.
+# This allows to play the WebRTC stream from an external website.
+webrtcAllowOrigin: '*'
+# List of IPs or CIDRs of proxies placed before the WebRTC server.
+# If the server receives a request from one of these entries, IP in logs
+# will be taken from the X-Forwarded-For header.
+webrtcTrustedProxies: []
+# List of ICE servers, in format type:user:password:host:port or type:host:port.
+# type can be "stun", "turn" or "turns".
+# STUN servers are used to obtain the public IP of server and clients. They are
+# needed when server and clients are on different LANs.
+# TURN servers are needed when a direct connection between server and clients
+# is not possible. All traffic is routed through the chosen TURN server.
+# if user is "AUTH_SECRET", then authentication is secret based.
+# the secret must be inserted into the password field.
+#webrtcICEServers: [stun:stun.l.google.com:19302]
+webrtcICEServers: []
+# List of public IP addresses that are to be used as a host.
+# This is used typically for servers that are behind 1:1 D-NAT.
+webrtcICEHostNAT1To1IPs: []
+# Address of a ICE UDP listener in format host:port.
+# If filled, ICE traffic will pass through a single UDP port,
+# allowing the deployment of the server inside a container or behind a NAT.
+webrtcICEUDPMuxAddress:
+# Address of a ICE TCP listener in format host:port.
+# If filled, ICE traffic will pass through a single TCP port,
+# allowing the deployment of the server inside a container or behind a NAT.
+# Setting this parameter forces usage of the TCP protocol, which is not
+# optimal for WebRTC.
+webrtcICETCPMuxAddress:
