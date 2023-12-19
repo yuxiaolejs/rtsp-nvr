@@ -32,11 +32,15 @@ class Recorder {
         this.process.on("error", (err) => {
             this.recording = false;
             this.process = null;
+            this.clearInterval(this.cleanUpInterval)
+            this.clearInterval(this.monitorInterval)
             this.e.emit("stop", err)
         })
         this.process.on("exit", (code, signal) => {
             this.recording = false;
             this.process = null;
+            this.clearInterval(this.cleanUpInterval)
+            this.clearInterval(this.monitorInterval)
             this.e.emit("stop", code, signal)
         })
         this.process.stderr.on("data", (data) => {
