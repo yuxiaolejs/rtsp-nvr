@@ -34,6 +34,9 @@ rtc.start()
 const express = require('express')
 const app = express()
 app.use(express.static(path.join(__dirname, 'static')))
+app.get("/status", (req, res) => {
+    res.json({ rtc: rtc.recording, ffmpeg: rec.recording })
+})
 app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, 'static/webrtc.html'))
 })

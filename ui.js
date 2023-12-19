@@ -29,7 +29,7 @@ function createWindow() {
     // win.loadFile('index.html')
     win.loadURL("http://127.0.0.1:3010/webrtc.html")
 
-    win.webContents.openDevTools()
+    // win.webContents.openDevTools()
 
     win.on('closed', () => {
         win = null

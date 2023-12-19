@@ -19,9 +19,38 @@
             background: black;
         }
     </style>
+    <style>
+        #status {
+            position: absolute;
+            top: 2vh;
+            left: 2vw;
+            color: white;
+            z-index: 100;
+            font-size: 1.5vw;
+        }
+    </style>
 </head>
 
 <body>
+
+    <h3 id="status"></h3>
+
+    <script>
+        function getStatus() {
+            fetch("/status").then((res) => {
+                if (res.status !== 200) {
+                    throw new Error('bad status code');
+                }
+                return res.text();
+            }).then((text) => {
+                document.getElementById("status").innerText = text;
+            }).catch((err) => {
+                console.log('error: ' + err);
+            });
+        }
+
+        setInterval(getStatus, 1000);
+    </script>
 
     <script>
 
