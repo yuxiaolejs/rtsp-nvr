@@ -24,21 +24,26 @@ class MediaMTX {
         this.recording = true;
         this.e.emit("start")
         this.process.on("error", (err) => {
+            console.log("ERROR")
             this.e.emit("stop", err)
         })
         this.process.on("exit", (code, signal) => {
+            console.log("EXIT")
             this.recording = false;
             this.e.emit("stop", code, signal)
         })
         // this.process.stdout.pipe(process.stdout)
         // this.process.stderr.pipe(process.stderr)
 
-        this.#updateInfo()
+        setTimeout(() => {
+            this.#updateInfo()
+        }, 1000)
         return true;
     }
     #updateInfo() {
-        this.axio.post("/v2/config/paths/add/proxied", { source: this.url }).then(d => {
+        this.axio.post("/v3/config/paths/add/proxied", { source: this.url }).then(d => {
         }).catch(e => {
+            console.log(e)
             this.stop()
         })
     }

@@ -3,7 +3,7 @@ const events = require('events');
 const path = require("path")
 const fs = require('fs')
 const REC_FOLDER = "recording"
-const SIZE_LIMIT = 1024 * 1024 * 1024 * 2
+const SIZE_LIMIT = 1024 * 1024 * 1024 * 60
 class Recorder {
     constructor(url, filename = ch1, segtime = 60) {
         this.process = null;
@@ -36,7 +36,6 @@ class Recorder {
             this.recording = false;
             this.e.emit("stop", code, signal)
         })
-        // this.process.stdout.pipe(process.stdout)
         this.process.stderr.on("data", (data) => {
             let obj = this.#parseStderr(data.toString())
             if (obj.frame && obj.frame != 0 && this.previousFrames <= obj.frame) {
@@ -44,6 +43,7 @@ class Recorder {
                 this.previousFrames = obj.frame
             }
         })
+        // this.process.stdout.pipe(process.stdout)
         // this.process.stderr.pipe(process.stderr)
         this.cleanUpInterval = setInterval(() => {
             if (!this.recording) {

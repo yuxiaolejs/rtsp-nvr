@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -18,26 +19,21 @@
             background: black;
         }
     </style>
-    <style id="PHTStyle" type="text/css">
-        .qtip-content {
-            font-family: "Times New Roman";
-            font-size: 17px;
-            line-height: 19px;
-        }
-
-        .qtip-max-width {
-            max-width: 700px;
-        }
-    </style>
 </head>
 
-<body data-hasqtip="0">
-
-    <video id="video" muted="" controls="" autoplay="" playsinline=""></video>
+<body>
 
     <script>
-        const rtsp_url = "http://127.0.0.1:8889/proxied"
+
+        const RTC_HOST = "http://127.0.0.1:8889"
+        const STREAM_NAME = "proxied"
+
         const restartPause = 2000;
+
+        const unquoteCredential = (v) => (
+            JSON.parse(`"${v}"`)
+        );
+
         const linkToIceServers = (links) => (
             (links !== null) ? links.split(', ').map((link) => {
                 const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
@@ -46,8 +42,8 @@
                 };
 
                 if (m[3] !== undefined) {
-                    ret.username = m[3];
-                    ret.credential = m[4];
+                    ret.username = unquoteCredential(m[3]);
+                    ret.credential = unquoteCredential(m[4]);
                     ret.credentialType = "password";
                 }
 
@@ -73,6 +69,48 @@
             }
 
             return ret;
+        };
+
+        const enableStereoOpus = (section) => {
+            let opusPayloadFormat = '';
+            let lines = section.split('\r\n');
+
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
+                    opusPayloadFormat = lines[i].slice('a=rtpmap:'.length).split(' ')[0];
+                    break;
+                }
+            }
+
+            if (opusPayloadFormat === '') {
+                return section;
+            }
+
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
+                    if (!lines[i].includes('stereo')) {
+                        lines[i] += ';stereo=1';
+                    }
+                    if (!lines[i].includes('sprop-stereo')) {
+                        lines[i] += ';sprop-stereo=1';
+                    }
+                }
+            }
+
+            return lines.join('\r\n');
+        };
+
+        const editOffer = (offer) => {
+            const sections = offer.sdp.split('m=');
+
+            for (let i = 0; i < sections.length; i++) {
+                const section = sections[i];
+                if (section.startsWith('audio')) {
+                    sections[i] = enableStereoOpus(section);
+                }
+            }
+
+            offer.sdp = sections.join('m=');
         };
 
         const generateSdpFragment = (offerData, candidates) => {
@@ -106,10 +144,11 @@
         }
 
         class WHEPClient {
-            constructor() {
+            constructor(video) {
+                this.video = video;
                 this.pc = null;
                 this.restartTimeout = null;
-                this.eTag = '';
+                this.sessionUrl = '';
                 this.queuedCandidates = [];
                 this.start();
             }
@@ -117,7 +156,7 @@
             start() {
                 console.log("requesting ICE servers");
 
-                fetch(`${rtsp_url}/whep`, {
+                fetch(new URL(`${RTC_HOST}/${STREAM_NAME}/whep`, window.location.href) + window.location.search, {
                     method: 'OPTIONS',
                 })
                     .then((res) => this.onIceServers(res))
@@ -141,38 +180,42 @@
 
                 this.pc.ontrack = (evt) => {
                     console.log("new track:", evt.track.kind);
-                    document.getElementById("video").srcObject = evt.streams[0];
+                    this.video.srcObject = evt.streams[0];
                 };
 
                 this.pc.createOffer()
-                    .then((desc) => {
-                        this.offerData = parseOffer(desc.sdp);
-                        this.pc.setLocalDescription(desc);
+                    .then((offer) => this.onLocalOffer(offer));
+            }
 
-                        console.log("sending offer");
+            onLocalOffer(offer) {
+                editOffer(offer);
 
-                        fetch(`${rtsp_url}/whep`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/sdp',
-                            },
-                            body: desc.sdp,
-                        })
-                            .then((res) => {
-                                if (res.status !== 201) {
-                                    throw new Error('bad status code');
-                                }
-                                this.eTag = res.headers.get('E-Tag');
-                                return res.text();
-                            })
-                            .then((sdp) => this.onRemoteDescription(new RTCSessionDescription({
-                                type: 'answer',
-                                sdp,
-                            })))
-                            .catch((err) => {
-                                console.log('error: ' + err);
-                                this.scheduleRestart();
-                            });
+                this.offerData = parseOffer(offer.sdp);
+                this.pc.setLocalDescription(offer);
+
+                console.log("sending offer");
+
+                fetch(new URL(`${RTC_HOST}/${STREAM_NAME}/whep`, window.location.href) + window.location.search, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/sdp',
+                    },
+                    body: offer.sdp,
+                })
+                    .then((res) => {
+                        if (res.status !== 201) {
+                            throw new Error('bad status code');
+                        }
+                        this.sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
+                        return res.text();
+                    })
+                    .then((sdp) => this.onRemoteAnswer(new RTCSessionDescription({
+                        type: 'answer',
+                        sdp,
+                    })))
+                    .catch((err) => {
+                        console.log('error: ' + err);
+                        this.scheduleRestart();
                     });
             }
 
@@ -189,12 +232,12 @@
                 }
             }
 
-            onRemoteDescription(answer) {
+            onRemoteAnswer(answer) {
                 if (this.restartTimeout !== null) {
                     return;
                 }
 
-                this.pc.setRemoteDescription(new RTCSessionDescription(answer));
+                this.pc.setRemoteDescription(answer);
 
                 if (this.queuedCandidates.length !== 0) {
                     this.sendLocalCandidates(this.queuedCandidates);
@@ -208,7 +251,7 @@
                 }
 
                 if (evt.candidate !== null) {
-                    if (this.eTag === '') {
+                    if (this.sessionUrl === '') {
                         this.queuedCandidates.push(evt.candidate);
                     } else {
                         this.sendLocalCandidates([evt.candidate])
@@ -217,11 +260,11 @@
             }
 
             sendLocalCandidates(candidates) {
-                fetch(`${rtsp_url}/whep`, {
+                fetch(`${RTC_HOST}/${STREAM_NAME}/` + this.sessionUrl + window.location.search, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/trickle-ice-sdpfrag',
-                        'If-Match': this.eTag,
+                        'If-Match': '*',
                     },
                     body: generateSdpFragment(this.offerData, candidates),
                 })
@@ -251,12 +294,115 @@
                     this.start();
                 }, restartPause);
 
-                this.eTag = '';
+                if (this.sessionUrl) {
+                    fetch(`${RTC_HOST}/${STREAM_NAME}/` + this.sessionUrl, {
+                        method: 'DELETE',
+                    })
+                        .then((res) => {
+                            if (res.status !== 200) {
+                                throw new Error('bad status code');
+                            }
+                        })
+                        .catch((err) => {
+                            console.log('delete session error: ' + err);
+                        });
+                }
+                this.sessionUrl = '';
+
                 this.queuedCandidates = [];
             }
         }
-        window.addEventListener('DOMContentLoaded', () => new WHEPClient());
+
+        /**
+         * Parses the query string from a URL into an object representing the query parameters.
+         * If no URL is provided, it uses the query string from the current page's URL.
+         *
+         * @param {string} [url=window.location.search] - The URL to parse the query string from.
+         * @returns {Object} An object representing the query parameters with keys as parameter names and values as parameter values.
+         */
+        const parseQueryString = (url) => {
+            const queryString = (url || window.location.search).split("?")[1];
+            if (!queryString) return {};
+
+            const paramsArray = queryString.split("&");
+            const result = {};
+
+            for (let i = 0; i < paramsArray.length; i++) {
+                const param = paramsArray[i].split("=");
+                const key = decodeURIComponent(param[0]);
+                const value = decodeURIComponent(param[1] || "");
+
+                if (key) {
+                    if (result[key]) {
+                        if (Array.isArray(result[key])) {
+                            result[key].push(value);
+                        } else {
+                            result[key] = [result[key], value];
+                        }
+                    } else {
+                        result[key] = value;
+                    }
+                }
+            }
+
+            return result;
+        };
+
+        /**
+         * Parses a string with boolean-like values and returns a boolean.
+         * @param {string} str The string to parse
+         * @param {boolean} defaultVal The default value
+         * @returns {boolean}
+         */
+        const parseBoolString = (str, defaultVal) => {
+            const trueValues = ["1", "yes", "true"];
+            const falseValues = ["0", "no", "false"];
+            str = (str || "").toString();
+
+            if (trueValues.includes(str.toLowerCase())) {
+                return true;
+            } else if (falseValues.includes(str.toLowerCase())) {
+                return false;
+            } else {
+                return defaultVal;
+            }
+        };
+
+        /**
+         * Sets video attributes based on query string parameters or default values.
+         *
+         * @param {HTMLVideoElement} video - The video element on which to set the attributes.
+         */
+        const setVideoAttributes = (video) => {
+            let qs = parseQueryString();
+
+            video.controls = parseBoolString(qs["controls"], true);
+            video.muted = parseBoolString(qs["muted"], true);
+            video.autoplay = parseBoolString(qs["autoplay"], true);
+            video.playsInline = parseBoolString(qs["playsinline"], true);
+        };
+
+        /**
+         *
+         * @param {(video: HTMLVideoElement) => void} callback
+         * @param {HTMLElement} container
+         * @returns
+         */
+        const initVideoElement = (callback, container) => {
+            return () => {
+                const video = document.createElement("video");
+                video.id = "video";
+
+                setVideoAttributes(video);
+                container.append(video);
+                callback(video);
+            };
+        };
+
+        window.addEventListener('DOMContentLoaded', initVideoElement((video) => new WHEPClient(video), document.body));
+
     </script>
+
 </body>
 
 </html>
